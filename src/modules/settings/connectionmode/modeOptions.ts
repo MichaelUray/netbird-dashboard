@@ -17,6 +17,7 @@ export interface ModeMeta {
   visible: boolean;
   showsRelayTimeout: boolean;
   showsP2pTimeout: boolean;
+  showsP2pRetryMax: boolean;
 }
 
 export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
@@ -26,6 +27,7 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
     visible: true,
     showsRelayTimeout: false,
     showsP2pTimeout: false,
+    showsP2pRetryMax: false,
   },
   "p2p-lazy": {
     value: "p2p-lazy",
@@ -33,6 +35,7 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
     visible: true,
     showsRelayTimeout: true,
     showsP2pTimeout: false,
+    showsP2pRetryMax: false,
   },
   "p2p-dynamic": {
     value: "p2p-dynamic",
@@ -40,6 +43,7 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
     visible: true, // Phase 2: now functional in the daemon
     showsRelayTimeout: true,
     showsP2pTimeout: true,
+    showsP2pRetryMax: true,
   },
   "relay-forced": {
     value: "relay-forced",
@@ -47,6 +51,7 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
     visible: false, // Phase-1 admin-only
     showsRelayTimeout: false,
     showsP2pTimeout: false,
+    showsP2pRetryMax: false,
   },
 };
 
@@ -57,6 +62,7 @@ export const VISIBLE_MODE_OPTIONS: SelectOption[] = Object.values(MODE_META)
 // Defaults shown as placeholders when DB value is NULL.
 export const DEFAULT_RELAY_TIMEOUT_SECONDS = 5 * 60; // 5 min
 export const DEFAULT_P2P_TIMEOUT_SECONDS = 180 * 60; // 180 min
+export const DEFAULT_P2P_RETRY_MAX_SECONDS = 15 * 60; // 15 min
 
 // resolveLegacyLazyBool mirrors the server-side fallback: if the new
 // connection_mode field is null/undefined, derive the effective mode from
