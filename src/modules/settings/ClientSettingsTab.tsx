@@ -23,6 +23,7 @@ import {
   MonitorSmartphoneIcon,
   AlertTriangle,
   RefreshCcw,
+  ZapIcon,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
@@ -36,6 +37,7 @@ import { useGroups } from "@/contexts/GroupsProvider";
 import { SkeletonSettings } from "@components/skeletons/SkeletonSettings";
 import {
   ConnectionModeValue,
+  DEFAULT_P2P_TIMEOUT_SECONDS,
   DEFAULT_RELAY_TIMEOUT_SECONDS,
   MODE_META,
   VISIBLE_MODE_OPTIONS,
@@ -88,6 +90,9 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
   );
   const [relayTimeoutSeconds, setRelayTimeoutSeconds] = useState<number | null>(
     account.settings?.relay_timeout_seconds ?? null,
+  );
+  const [p2pTimeoutSeconds, setP2pTimeoutSeconds] = useState<number | null>(
+    account.settings?.p2p_timeout_seconds ?? null,
   );
 
   const autoUpdateSetting = account.settings?.auto_update_version;
@@ -199,12 +204,15 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
 
   // Phase 1 (#5989): persist mode + timeout, AND mirror onto the legacy
   // lazy_connection_enabled boolean so older daemon versions stay in sync.
+  // Phase 2: extends the same persistence path with p2p_timeout_seconds.
   const saveConnectionMode = async (
     nextMode: ConnectionModeValue,
     nextRelayTimeout: number | null,
+    nextP2pTimeout: number | null,
   ) => {
     setConnectionMode(nextMode);
     setRelayTimeoutSeconds(nextRelayTimeout);
+    setP2pTimeoutSeconds(nextP2pTimeout);
 
     notify({
       title: "Connection Mode",
@@ -216,6 +224,7 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
             ...account.settings,
             connection_mode: nextMode,
             relay_timeout_seconds: nextRelayTimeout,
+            p2p_timeout_seconds: nextP2pTimeout,
             lazy_connection_enabled: modeImpliesLegacyLazy(nextMode),
           },
         })
@@ -227,21 +236,32 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
   };
 
   const handleModeChange = (next: string) => {
-    // Mode-change preserves the persisted relay timeout (per spec
-    // section 5.3): users only lose their entered value if they clear
+    // Mode-change preserves both persisted timeouts (per spec
+    // section 5.3): users only lose entered values if they clear
     // the input explicitly, not via mode-switch.
-    saveConnectionMode(next as ConnectionModeValue, relayTimeoutSeconds);
+    saveConnectionMode(next as ConnectionModeValue, relayTimeoutSeconds, p2pTimeoutSeconds);
   };
 
   const handleRelayTimeoutChange = (raw: string) => {
     const trimmed = raw.trim();
     if (trimmed === "") {
-      saveConnectionMode(connectionMode, null);
+      saveConnectionMode(connectionMode, null, p2pTimeoutSeconds);
       return;
     }
     const parsed = Number(trimmed);
     if (!Number.isInteger(parsed) || parsed < 0) return;
-    saveConnectionMode(connectionMode, parsed);
+    saveConnectionMode(connectionMode, parsed, p2pTimeoutSeconds);
+  };
+
+  const handleP2pTimeoutChange = (raw: string) => {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      saveConnectionMode(connectionMode, relayTimeoutSeconds, null);
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 0) return;
+    saveConnectionMode(connectionMode, relayTimeoutSeconds, parsed);
   };
 
   const currentMeta = MODE_META[connectionMode];
@@ -449,12 +469,32 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
                   disabled={!permission.settings.update}
                 />
               )}
+              {currentMeta.showsP2pTimeout && (
+                <Input
+                  value={
+                    p2pTimeoutSeconds === null
+                      ? ""
+                      : String(p2pTimeoutSeconds)
+                  }
+                  customPrefix={<ZapIcon size={14} />}
+                  placeholder={String(DEFAULT_P2P_TIMEOUT_SECONDS)}
+                  onChange={(e) => handleP2pTimeoutChange(e.target.value)}
+                  disabled={!permission.settings.update}
+                />
+              )}
             </div>
             {currentMeta.showsRelayTimeout && (
               <HelpText className={"mt-2"}>
                 Relay timeout in seconds. Empty = use built-in default
                 ({DEFAULT_RELAY_TIMEOUT_SECONDS}s = 5 min). Set to 0 to keep
                 the relay alive indefinitely.
+              </HelpText>
+            )}
+            {currentMeta.showsP2pTimeout && (
+              <HelpText className={"mt-2"}>
+                P2P (ICE) timeout in seconds. Empty = use built-in default
+                ({DEFAULT_P2P_TIMEOUT_SECONDS}s = 180 min). Set to 0 to keep
+                the ICE worker alive indefinitely.
               </HelpText>
             )}
           </div>

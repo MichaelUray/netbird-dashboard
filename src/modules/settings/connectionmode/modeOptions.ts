@@ -37,7 +37,7 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
   "p2p-dynamic": {
     value: "p2p-dynamic",
     label: "P2P Dynamic",
-    visible: false, // Phase-1 hides; backend still accepts via API
+    visible: true, // Phase 2: now functional in the daemon
     showsRelayTimeout: true,
     showsP2pTimeout: true,
   },
