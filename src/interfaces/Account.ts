@@ -30,6 +30,7 @@ export interface Account {
     connection_mode?: "relay-forced" | "p2p" | "p2p-lazy" | "p2p-dynamic" | null;
     relay_timeout_seconds?: number | null;
     p2p_timeout_seconds?: number | null;
+    p2p_retry_max_seconds?: number | null;
     embedded_idp_enabled?: boolean;
     auto_update_version: string;
     auto_update_always: boolean;

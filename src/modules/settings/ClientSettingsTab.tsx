@@ -23,6 +23,7 @@ import {
   MonitorSmartphoneIcon,
   AlertTriangle,
   RefreshCcw,
+  RotateCcwIcon,
   ZapIcon,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
@@ -35,8 +36,10 @@ import ReverseProxyIcon from "@/assets/icons/ReverseProxyIcon";
 import useGroupHelper from "@/modules/groups/useGroupHelper";
 import { useGroups } from "@/contexts/GroupsProvider";
 import { SkeletonSettings } from "@components/skeletons/SkeletonSettings";
+import { parseDuration, formatDuration } from "@/modules/settings/duration";
 import {
   ConnectionModeValue,
+  DEFAULT_P2P_RETRY_MAX_SECONDS,
   DEFAULT_P2P_TIMEOUT_SECONDS,
   DEFAULT_RELAY_TIMEOUT_SECONDS,
   MODE_META,
@@ -94,6 +97,30 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
   const [p2pTimeoutSeconds, setP2pTimeoutSeconds] = useState<number | null>(
     account.settings?.p2p_timeout_seconds ?? null,
   );
+  const [p2pRetryMaxSeconds, setP2pRetryMaxSeconds] = useState<number | null>(
+    account.settings?.p2p_retry_max_seconds ?? null,
+  );
+
+  // Local string state for the three timeout inputs (supports "1h30m" syntax).
+  // Parsed + saved on blur; typed text is never discarded mid-keystroke.
+  const [relayTimeoutInput, setRelayTimeoutInput] = useState<string>(
+    account.settings?.relay_timeout_seconds != null
+      ? formatDuration(account.settings.relay_timeout_seconds)
+      : "",
+  );
+  const [p2pTimeoutInput, setP2pTimeoutInput] = useState<string>(
+    account.settings?.p2p_timeout_seconds != null
+      ? formatDuration(account.settings.p2p_timeout_seconds)
+      : "",
+  );
+  const [p2pRetryMaxInput, setP2pRetryMaxInput] = useState<string>(
+    account.settings?.p2p_retry_max_seconds != null
+      ? formatDuration(account.settings.p2p_retry_max_seconds)
+      : "",
+  );
+  const [relayTimeoutError, setRelayTimeoutError] = useState<string | null>(null);
+  const [p2pTimeoutError, setP2pTimeoutError] = useState<string | null>(null);
+  const [p2pRetryMaxError, setP2pRetryMaxError] = useState<string | null>(null);
 
   const autoUpdateSetting = account.settings?.auto_update_version;
   const isAutoUpdateEnabled =
@@ -204,15 +231,18 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
 
   // Phase 1 (#5989): persist mode + timeout, AND mirror onto the legacy
   // lazy_connection_enabled boolean so older daemon versions stay in sync.
-  // Phase 2: extends the same persistence path with p2p_timeout_seconds.
+  // Phase 2: extends with p2p_timeout_seconds.
+  // Phase 3: extends with p2p_retry_max_seconds.
   const saveConnectionMode = async (
     nextMode: ConnectionModeValue,
     nextRelayTimeout: number | null,
     nextP2pTimeout: number | null,
+    nextP2pRetryMax: number | null,
   ) => {
     setConnectionMode(nextMode);
     setRelayTimeoutSeconds(nextRelayTimeout);
     setP2pTimeoutSeconds(nextP2pTimeout);
+    setP2pRetryMaxSeconds(nextP2pRetryMax);
 
     notify({
       title: "Connection Mode",
@@ -225,43 +255,65 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
             connection_mode: nextMode,
             relay_timeout_seconds: nextRelayTimeout,
             p2p_timeout_seconds: nextP2pTimeout,
+            p2p_retry_max_seconds: nextP2pRetryMax,
             lazy_connection_enabled: modeImpliesLegacyLazy(nextMode),
           },
         })
-        .then(() => {
-          mutate("/accounts");
-        }),
+        .then(() => mutate("/accounts")),
       loadingMessage: "Updating connection mode...",
     });
   };
 
   const handleModeChange = (next: string) => {
-    // Mode-change preserves both persisted timeouts (per spec
+    // Mode-change preserves all three persisted timeouts (per spec
     // section 5.3): users only lose entered values if they clear
     // the input explicitly, not via mode-switch.
-    saveConnectionMode(next as ConnectionModeValue, relayTimeoutSeconds, p2pTimeoutSeconds);
+    saveConnectionMode(next as ConnectionModeValue, relayTimeoutSeconds, p2pTimeoutSeconds, p2pRetryMaxSeconds);
   };
 
-  const handleRelayTimeoutChange = (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed === "") {
-      saveConnectionMode(connectionMode, null, p2pTimeoutSeconds);
+  const handleBlurRelay = () => {
+    if (relayTimeoutInput === "") {
+      setRelayTimeoutError(null);
+      saveConnectionMode(connectionMode, null, p2pTimeoutSeconds, p2pRetryMaxSeconds);
       return;
     }
-    const parsed = Number(trimmed);
-    if (!Number.isInteger(parsed) || parsed < 0) return;
-    saveConnectionMode(connectionMode, parsed, p2pTimeoutSeconds);
+    const parsed = parseDuration(relayTimeoutInput);
+    if (parsed === null) {
+      setRelayTimeoutError(`Invalid format. Use "1m", "5m30s", "0s", or seconds.`);
+      return;
+    }
+    setRelayTimeoutError(null);
+    saveConnectionMode(connectionMode, parsed, p2pTimeoutSeconds, p2pRetryMaxSeconds);
   };
 
-  const handleP2pTimeoutChange = (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed === "") {
-      saveConnectionMode(connectionMode, relayTimeoutSeconds, null);
+  const handleBlurP2p = () => {
+    if (p2pTimeoutInput === "") {
+      setP2pTimeoutError(null);
+      saveConnectionMode(connectionMode, relayTimeoutSeconds, null, p2pRetryMaxSeconds);
       return;
     }
-    const parsed = Number(trimmed);
-    if (!Number.isInteger(parsed) || parsed < 0) return;
-    saveConnectionMode(connectionMode, relayTimeoutSeconds, parsed);
+    const parsed = parseDuration(p2pTimeoutInput);
+    if (parsed === null) {
+      setP2pTimeoutError(`Invalid format. Use "1m", "5m30s", "0s", or seconds.`);
+      return;
+    }
+    setP2pTimeoutError(null);
+    saveConnectionMode(connectionMode, relayTimeoutSeconds, parsed, p2pRetryMaxSeconds);
+  };
+
+  const handleBlurP2pRetryMax = () => {
+    if (p2pRetryMaxInput === "") {
+      setP2pRetryMaxError(null);
+      saveConnectionMode(connectionMode, relayTimeoutSeconds, p2pTimeoutSeconds, null);
+      return;
+    }
+    const parsed = parseDuration(p2pRetryMaxInput);
+    if (parsed === null) {
+      setP2pRetryMaxError(`Invalid format. Use "1m", "5m30s", "2h", or "0s".`);
+      return;
+    }
+    setP2pRetryMaxError(null);
+    saveConnectionMode(connectionMode, relayTimeoutSeconds, p2pTimeoutSeconds, parsed);
   };
 
   const currentMeta = MODE_META[connectionMode];
@@ -450,52 +502,63 @@ function ClientSettingsTabContent({ account }: Readonly<Props>) {
                 <ExternalLinkIcon size={12} />
               </InlineLink>
             </HelpText>
-            <div className={"gap-4 items-center grid grid-cols-2 mt-2"}>
+            <div className={"mt-2"}>
               <SelectDropdown
                 value={connectionMode}
                 onChange={handleModeChange}
                 options={VISIBLE_MODE_OPTIONS}
               />
-              {currentMeta.showsRelayTimeout && (
-                <Input
-                  value={
-                    relayTimeoutSeconds === null
-                      ? ""
-                      : String(relayTimeoutSeconds)
-                  }
-                  customPrefix={<ClockFadingIcon size={14} />}
-                  placeholder={String(DEFAULT_RELAY_TIMEOUT_SECONDS)}
-                  onChange={(e) => handleRelayTimeoutChange(e.target.value)}
-                  disabled={!permission.settings.update}
-                />
-              )}
-              {currentMeta.showsP2pTimeout && (
-                <Input
-                  value={
-                    p2pTimeoutSeconds === null
-                      ? ""
-                      : String(p2pTimeoutSeconds)
-                  }
-                  customPrefix={<ZapIcon size={14} />}
-                  placeholder={String(DEFAULT_P2P_TIMEOUT_SECONDS)}
-                  onChange={(e) => handleP2pTimeoutChange(e.target.value)}
-                  disabled={!permission.settings.update}
-                />
-              )}
             </div>
             {currentMeta.showsRelayTimeout && (
-              <HelpText className={"mt-2"}>
-                Relay timeout in seconds. Empty = use built-in default
-                ({DEFAULT_RELAY_TIMEOUT_SECONDS}s = 5 min). Set to 0 to keep
-                the relay alive indefinitely.
-              </HelpText>
+              <div className={"mt-3"}>
+                <Input
+                  value={relayTimeoutInput}
+                  customPrefix={<ClockFadingIcon size={14} />}
+                  placeholder={`default: ${formatDuration(DEFAULT_RELAY_TIMEOUT_SECONDS)}`}
+                  onChange={(e) => setRelayTimeoutInput(e.target.value)}
+                  onBlur={handleBlurRelay}
+                  error={relayTimeoutError ?? undefined}
+                  disabled={!permission.settings.update}
+                />
+                <HelpText className={"mt-2"}>
+                  Relay timeout. Format: "1m", "5m30s", "0s" (no teardown).
+                  Default: <strong>{formatDuration(DEFAULT_RELAY_TIMEOUT_SECONDS)}</strong>.
+                </HelpText>
+              </div>
             )}
             {currentMeta.showsP2pTimeout && (
-              <HelpText className={"mt-2"}>
-                P2P (ICE) timeout in seconds. Empty = use built-in default
-                ({DEFAULT_P2P_TIMEOUT_SECONDS}s = 180 min). Set to 0 to keep
-                the ICE worker alive indefinitely.
-              </HelpText>
+              <div className={"mt-3"}>
+                <Input
+                  value={p2pTimeoutInput}
+                  customPrefix={<ZapIcon size={14} />}
+                  placeholder={`default: ${formatDuration(DEFAULT_P2P_TIMEOUT_SECONDS)}`}
+                  onChange={(e) => setP2pTimeoutInput(e.target.value)}
+                  onBlur={handleBlurP2p}
+                  error={p2pTimeoutError ?? undefined}
+                  disabled={!permission.settings.update}
+                />
+                <HelpText className={"mt-2"}>
+                  P2P (ICE) timeout. Format: "1m", "5m30s", "0s" (no teardown).
+                  Default: <strong>{formatDuration(DEFAULT_P2P_TIMEOUT_SECONDS)}</strong>.
+                </HelpText>
+              </div>
+            )}
+            {currentMeta.showsP2pRetryMax && (
+              <div className={"mt-3"}>
+                <Input
+                  value={p2pRetryMaxInput}
+                  customPrefix={<RotateCcwIcon size={14} />}
+                  placeholder={`default: ${formatDuration(DEFAULT_P2P_RETRY_MAX_SECONDS)}`}
+                  onChange={(e) => setP2pRetryMaxInput(e.target.value)}
+                  onBlur={handleBlurP2pRetryMax}
+                  error={p2pRetryMaxError ?? undefined}
+                  disabled={!permission.settings.update}
+                />
+                <HelpText className={"mt-2"}>
+                  Max P2P-retry interval after ICE failures. Format: "1m", "5m30s", "2h", "0s" (no backoff).
+                  Default: <strong>{formatDuration(DEFAULT_P2P_RETRY_MAX_SECONDS)}</strong>.
+                </HelpText>
+              </div>
             )}
           </div>
         </div>
