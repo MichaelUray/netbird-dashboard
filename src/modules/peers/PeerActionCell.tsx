@@ -164,7 +164,7 @@ export default function PeerActionCell() {
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onClick={() => router.push(`/peers/${peer.id}/connections`)}
+            onClick={() => router.push(`/peers/connections?id=${peer.id}`)}
             disabled={!permission.peers.read}
           >
             <div className={"flex gap-3 items-center"}>
