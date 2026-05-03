@@ -1,15 +1,15 @@
-// Phase 1 (issue #5989) connection-mode options for the dashboard.
-// Two modes are visible in Phase 1; relay-forced and p2p-dynamic remain
-// admin-only (settable via API/CLI/env) and are kept out of the dropdown
-// to avoid surprising the typical admin.
+// Phase 3 (issue #5989) connection-mode options for the dashboard.
+// All four modes exposed; ordered relay-forced -> p2p -> p2p-lazy -> p2p-dynamic
+// (most-restrictive to most-elastic) so the picker reads top-down from
+// "force relay always" to "smart elastic".
 
 import { SelectOption } from "@components/select/SelectDropdown";
 
 export type ConnectionModeValue =
+  | "relay-forced"
   | "p2p"
   | "p2p-lazy"
-  | "p2p-dynamic"
-  | "relay-forced";
+  | "p2p-dynamic";
 
 export interface ModeMeta {
   value: ConnectionModeValue;
@@ -21,6 +21,14 @@ export interface ModeMeta {
 }
 
 export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
+  "relay-forced": {
+    value: "relay-forced",
+    label: "Relay Forced",
+    visible: true,
+    showsRelayTimeout: false,
+    showsP2pTimeout: false,
+    showsP2pRetryMax: false,
+  },
   "p2p": {
     value: "p2p",
     label: "P2P (recommended)",
@@ -40,18 +48,10 @@ export const MODE_META: Record<ConnectionModeValue, ModeMeta> = {
   "p2p-dynamic": {
     value: "p2p-dynamic",
     label: "P2P Dynamic",
-    visible: true, // Phase 2: now functional in the daemon
+    visible: true,
     showsRelayTimeout: true,
     showsP2pTimeout: true,
     showsP2pRetryMax: true,
-  },
-  "relay-forced": {
-    value: "relay-forced",
-    label: "Relay Forced",
-    visible: false, // Phase-1 admin-only
-    showsRelayTimeout: false,
-    showsP2pTimeout: false,
-    showsP2pRetryMax: false,
   },
 };
 
