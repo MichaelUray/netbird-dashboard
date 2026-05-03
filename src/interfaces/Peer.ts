@@ -45,3 +45,28 @@ export interface PeerLocalFlags {
   rosenpass_permissive: boolean;
   server_ssh_allowed: boolean;
 }
+
+export type PeerConnectionEntry = {
+  remote_pubkey: string;
+  remote_fqdn?: string;
+  conn_type: "p2p" | "relayed" | "connecting" | "idle" | "unspecified";
+  last_handshake?: string;
+  latency_ms?: number;
+  endpoint?: string;
+  relay_server?: string;
+  rx_bytes?: number;
+  tx_bytes?: number;
+};
+
+export type PeerConnectionMap = {
+  peer_pubkey: string;
+  seq: number;
+  full_snapshot: boolean;
+  in_response_to_nonce?: number;
+  entries: PeerConnectionEntry[];
+};
+
+export type PeerConnectionRefreshResponse = {
+  refresh_token: number;
+  cached_map?: PeerConnectionMap;
+};
