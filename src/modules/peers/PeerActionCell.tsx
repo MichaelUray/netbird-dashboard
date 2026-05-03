@@ -13,6 +13,7 @@ import {
   ExternalLinkIcon,
   MonitorIcon,
   MoreVertical,
+  Share2,
   TerminalSquare,
   TimerResetIcon,
   Trash2,
@@ -159,6 +160,18 @@ export default function PeerActionCell() {
           )}
 
           <ExitNodeDropdownButton peer={peer} />
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            onClick={() => router.push(`/peers/${peer.id}/connections`)}
+            disabled={!permission.peers.read}
+          >
+            <div className={"flex gap-3 items-center"}>
+              <Share2 size={14} className={"shrink-0"} />
+              View Peer Connections
+            </div>
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
