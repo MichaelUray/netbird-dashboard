@@ -23,6 +23,7 @@ export default function PeerConnectionsView({ peerId }: { peerId: string }) {
   });
   const [busy, setBusy] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
 
   const { data, error, mutate } = usePeerConnections(peerId, since);
   const refreshApi = usePeerConnectionsRefresh(peerId);
@@ -36,8 +37,20 @@ export default function PeerConnectionsView({ peerId }: { peerId: string }) {
   async function onRefresh() {
     setBusy(true);
     setRefreshError(null);
+    setRefreshNotice(null);
     try {
       const res = await refreshApi.post(undefined);
+      if (res?.dispatched === false) {
+        // Codex review: server tells us no live Sync stream exists for
+        // this peer right now (offline / between connections / older
+        // daemon without snapshot-request support). Don't poll for
+        // fresh data -- just surface the cached map and tell the user.
+        setRefreshNotice(
+          "No live connection to this peer right now — showing the last cached map.",
+        );
+        await mutate();
+        return;
+      }
       if (res?.refresh_token !== undefined) {
         setSince(res.refresh_token);
       }
@@ -90,6 +103,12 @@ export default function PeerConnectionsView({ peerId }: { peerId: string }) {
         {(error || refreshError) && (
           <div className={"mb-4 text-red-500 text-sm"}>
             {error?.message ?? refreshError}
+          </div>
+        )}
+
+        {refreshNotice && (
+          <div className={"mb-4 text-amber-500 text-sm"}>
+            {refreshNotice}
           </div>
         )}
 

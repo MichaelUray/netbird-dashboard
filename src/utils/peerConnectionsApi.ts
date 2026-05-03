@@ -6,8 +6,10 @@ import type {
 } from "@/interfaces/Peer";
 
 /**
- * Hook: fetch the connection map for a peer, optionally filtering by sequence
- * number (since parameter maps to ?since=<seq>).
+ * Hook: fetch the connection map for a peer. The optional `since` parameter
+ * maps to ?since=<refresh-nonce> -- it is the nonce returned by
+ * usePeerConnectionsRefresh, NOT a sequence number. Server returns only when
+ * a fresh map with InResponseToNonce >= since is available (or 5 s timeout).
  */
 export function usePeerConnections(peerId: string, since?: number) {
   const url = since

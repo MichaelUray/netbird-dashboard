@@ -69,4 +69,10 @@ export type PeerConnectionMap = {
 export type PeerConnectionRefreshResponse = {
   refresh_token: number;
   cached_map?: PeerConnectionMap;
+  // True when the management server actually delivered the snapshot
+  // request to an active Sync stream for this peer. False means the
+  // peer has no live stream right now (offline / between connections /
+  // older daemon without snapshot-request support); the UI should fall
+  // back to the cached_map (if any) instead of polling for fresh data.
+  dispatched?: boolean;
 };
