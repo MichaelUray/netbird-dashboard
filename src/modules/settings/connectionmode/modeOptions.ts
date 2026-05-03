@@ -59,8 +59,14 @@ export const VISIBLE_MODE_OPTIONS: SelectOption[] = Object.values(MODE_META)
   .filter((m) => m.visible)
   .map((m) => ({ label: m.label, value: m.value }));
 
-// Defaults shown as placeholders when DB value is NULL.
-export const DEFAULT_RELAY_TIMEOUT_SECONDS = 5 * 60; // 5 min
+// Defaults shown as placeholders when DB value is NULL. Matched to the
+// daemon-side defaults so the placeholder accurately previews what an
+// unconfigured (NULL) peer will use. Changed 2026-05-03 from 5 min to
+// 24 h on the relay side: 5 min was too aggressive for typical mesh
+// usage (peers got torn down within minutes of an idle window, then
+// had to re-handshake on the next packet), and the dashboard
+// placeholder now mirrors what the daemon default is.
+export const DEFAULT_RELAY_TIMEOUT_SECONDS = 24 * 60 * 60; // 24 h
 export const DEFAULT_P2P_TIMEOUT_SECONDS = 180 * 60; // 180 min
 export const DEFAULT_P2P_RETRY_MAX_SECONDS = 15 * 60; // 15 min
 
