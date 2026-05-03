@@ -43,12 +43,26 @@ export default function PeerConnectionsView({ peerId }: { peerId: string }) {
       if (res?.dispatched === false) {
         // Codex review: server tells us no live Sync stream exists for
         // this peer right now (offline / between connections / older
-        // daemon without snapshot-request support). Don't poll for
-        // fresh data -- just surface the cached map and tell the user.
+        // daemon without snapshot-request support). Surface the cached
+        // map directly (if any) and skip the long-poll wait.
+        // setSince(undefined) drops any stale ?since= filter from a
+        // previous successful refresh -- otherwise SWR would block on
+        // the long-poll endpoint waiting for a nonce that will never
+        // arrive (until either a fresh refresh fires or the server
+        // 5 s timeout elapses).
+        setSince(undefined);
         setRefreshNotice(
           "No live connection to this peer right now — showing the last cached map.",
         );
-        await mutate();
+        // mutate the SWR cache directly with the cached_map the server
+        // already handed us. SWR de-duplicates on the URL, so populating
+        // the unfiltered (no-since) URL surfaces the data immediately
+        // even before mutate() returns.
+        if (res.cached_map) {
+          await mutate(res.cached_map, { revalidate: false });
+        } else {
+          await mutate();
+        }
         return;
       }
       if (res?.refresh_token !== undefined) {
